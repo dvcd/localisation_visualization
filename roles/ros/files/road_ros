@@ -1,0 +1,151 @@
+#! /bin/bash
+
+### BEGIN INIT INFO
+# Provides:             roadDB
+# Required-Start:       $remote_fs $syslog
+# Required-Stop:        $remote_fs $syslog
+# Should-Start:         $named start
+# Should-Stop:          $named stop
+# Default-Start:        2 3 4 5
+# Default-Stop:         0 1 6
+# Short-Description:    Start A-sample at boot time
+# Description:          Enable service provided by roadDB.
+### END INIT INFO
+
+if [ `id -u` -ne 0 ]; then
+    echo "You need root privileges to run this script"
+    exit 1
+fi
+
+# ***********************************************
+#[ -f /etc/default/road-ros ] && . /etc/default/road-ros
+LOG_PATH='/var/log/roadDB/ros'
+ros_core_log=$LOG_PATH/ros-core-`date '+%Y%m%d'`.log
+ros_core_bin='/opt/ros/install_isolated/bin/roscore'
+
+
+ROS_CORE_PID="/var/run/ros-core.pid"
+
+APPLICATION_USER="root"
+
+source /opt/ros/install_isolated/setup.bash
+
+# ***********************************************
+
+# colors
+red='\e[0;31m'
+green='\e[0;32m'
+yellow='\e[0;33m'
+reset='\e[0m'
+
+echoRed() { echo -e "${red}$1${reset}"; }
+echoGreen() { echo -e "${green}$1${reset}"; }
+echoYellow() { echo -e "${yellow}$1${reset}"; }
+
+
+
+# Check whether the application is running.
+# The check is pretty simple: open a running pid file and check that the process
+# is alive.
+isrunning() {
+  # Check for running app
+  _PID=$1
+  if [ -f "$_PID" ]; then
+    if kill -0 `cat $_PID` &>/dev/null; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
+start_proc() {
+
+  if isrunning $ROS_CORE_PID ; then
+      echoYellow "The ros-core is already running"
+  else
+
+    mkdir -p $LOG_PATH
+
+    LD_LIBRARY_PATH=$LD_LIBRARY_PATH  start-stop-daemon --start --quiet --background --make-pidfile --pidfile $ROS_CORE_PID --chuid $APPLICATION_USER --no-close --exec $ros_core_bin -- -v &>> $ros_core_log
+    sleep 1
+    if isrunning $ROS_CORE_PID ; then
+      echoGreen "The ros-core started"
+    else
+      echoRed "The ros-core has not started - check log"
+    fi
+  fi
+
+}
+
+restart_proc() {
+  echo "Restarting..."
+  stop_proc
+  start_proc
+}
+
+stop_proc() {
+
+  echoYellow "Stopping ros-core"
+  if isrunning $ROS_CORE_PID; then
+    for i in {1..10} ; do
+      if kill -0 `cat $ROS_CORE_PID` >/dev/null 2>&1 ; then
+        LD_LIBRARY_PATH=$LD_LIBRARY_PATH $rdb_stop_agent
+      fi
+      sleep 1
+      if kill -0 `cat $ROS_CORE_PID` >/dev/null 2>&1 ; then
+        kill `cat $ROS_CORE_PID`
+        sleep 1
+      else
+        echoGreen "ros-core stopped"
+        break
+      fi
+    done
+    rm $ROS_CORE_PID
+  fi
+
+  # for name in /opt/ygomi/roadDB/bin/sync-agent /opt/ygomi/roadDB/bin/video-rec /opt/ygomi/roadDB/bin/nmea-rec ; do
+  #   if pidof $name &>/dev/null ; then
+  #     kill -9 $(pidof $name) &>/dev/null
+  #   fi
+  # done
+}
+
+status_proc() {
+
+
+  if isrunning $ROS_CORE_PID; then
+    echoGreen "ros-core is running"
+  else
+    echoRed "ros-core is stopped"
+  fi
+}
+
+
+case "$1" in
+start)
+    start_proc
+;;
+
+status)
+   status_proc
+   exit 0
+;;
+
+stop)
+    if isrunning $ROS_CORE_PID ; then
+	stop_proc
+    else
+	echoRed "all services not running"
+	exit 3
+    fi
+;;
+
+restart)
+    restart_proc
+;;
+
+*)
+    echo "Usage: $0 {status|start|stop|restart}"
+    exit 1
+esac
+

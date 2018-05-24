@@ -1,0 +1,53 @@
+
+- name: add gcc-4.9 repository
+  become: yes
+  shell: add-apt-repository ppa:ubuntu-toolchain-r/test 
+
+- name: update apt
+  become: yes
+  apt: update_cache=yes
+
+- name: install support packages
+  become: yes
+  apt: name={{ item }} state=present force=yes
+  with_items:
+    - gcc-4.9
+    - g++-4.9
+    - cmake
+    - libeigen3-dev
+    - libeigen3-doc
+    - mesa-common-dev
+    - libgl1-mesa-dev
+    - libglu1-mesa-dev
+    - freeglut3
+    - freeglut3-dev
+    - binutils-gold
+    - libqt4-core
+    - libqt4-gui
+    - libbz2-dev
+    - libflann-dev
+    - libvtk-java
+    - python-vtk
+    - libvtk5-dev
+    - libvtk5-qt4-dev
+    - libvtk5.8
+    - libvtk5.8-qt4
+    - lvtk-dev
+
+- name: unarchive boost pcl and opencv
+  became: yes
+  unarchive: src={{ item }} dest=/
+  with_fileglob:
+    - roles/support/files/*.tar.gz
+
+- name: copy libboost
+  become: yes
+  shell: cp /usr/local/lib/libboost_* /usr/lib/x86_64-linux-gnu 
+
+- name: link libboost_system
+  become: yes
+  shell: ln -s /usr/local/lib/libboost_system.so.1.60.0 /usr/lib/libboost_system.so.1.54.0
+
+- name: link libboost_data_time
+  become: yes
+  shell: ln -s /usr/local/lib/libboost_date_time.so.1.60.0 /usr/lib/libboost_date_time.so.1.54.0 

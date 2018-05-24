@@ -1,0 +1,8 @@
+
+- name: apply ros
+  hosts: 127.0.0.1
+  become: true
+  roles:
+    - ros
+  vars:
+    force_flag: 

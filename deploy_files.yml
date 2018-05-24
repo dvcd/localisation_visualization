@@ -1,0 +1,8 @@
+
+- name: deploy files
+  hosts: 127.0.0.1
+  become: true
+  roles:
+    - support
+  vars:
+    force_flag: 

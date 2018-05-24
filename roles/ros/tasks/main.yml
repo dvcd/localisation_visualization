@@ -1,0 +1,49 @@
+
+- name: add ygomi ros repository
+  shell: sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+
+- name: add apt key for ros
+  apt_key: keyserver=keyserver.ubuntu.com id=421C365BD9FF1F717815A3895523BAEEB01FA116
+
+- name: update apt
+  become: yes
+  apt: update_cache=yes
+
+- name: install python-ros relative
+  apt: name={{ item }} state=present force=yes
+  with_items:
+    - python-rosdep
+    - python-rosinstall-generator
+    - python-wstool
+    - python-rosinstall
+    - python-netifaces
+
+- name: delete /etc/ros/rosdep/sources.list.d/20-default.list
+  file: path=/etc/ros/rosdep/sources.list.d/20-default.list state=absent
+
+- name: execute ros init and rosdep update
+  shell: rosdep init
+
+- name: rosdep update
+  become: yes
+  shell: rosdep update
+
+- name: unarchive ros.tar.gz to /opt
+  become: yes
+  unarchive: src=ros.tar.gz dest=/opt 
+
+- name: rosdep install --from-paths src --ignore-src --rosdistro indigo -y
+  become: yes
+  shell: rosdep install --from-paths src --ignore-src --rosdistro indigo -y chdir=/opt/ros
+
+- name: add envronment
+  blockinfile:
+    path: /home/{{ ansible_user }}/.bashrc
+    insertafter: EOF
+    block: |
+      source /opt/ros/install_isolated/setup.bash
+      export LD_LIBRARY_PATH=/opt/ros/install_isolated/lib/:$LD_LIBRARY_PATH
+
+- name: copy road_ros to /etc/init.d
+  copy: src=road_ros dest=/etc/init.d/road_ros owner=root group=root mode=0755
+
